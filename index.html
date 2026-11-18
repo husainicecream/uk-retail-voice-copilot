@@ -28,6 +28,9 @@
       border: 3px solid #34d399;
       animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
     }
+    .eq-bar {
+      transition: height 0.08s ease;
+    }
     @media print {
       body * { visibility: hidden; }
       #memoModal, #memoModal * { visibility: visible; }
@@ -47,7 +50,7 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">Executive Retail Copilot</h1>
-            <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">Multi-Agent v2</span>
+            <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Live Stage v3</span>
           </div>
           <p class="text-xs text-slate-400">Arthur (Lead) • Clara (Finance) • Marcus (Operations)</p>
         </div>
@@ -59,7 +62,7 @@
           type="text"
           value="agent_3501m7q4e95xfzaa7j19aed25ye0"
           placeholder="Agent ID (agent_...)"
-          class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 w-48 sm:w-56 focus:outline-none focus:border-sky-500"
+          class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 w-44 sm:w-52 focus:outline-none focus:border-sky-500"
         />
         <button
           id="connectBtn"
@@ -80,10 +83,15 @@
         >
           <span>📱</span> Share QR
         </button>
-        <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg transition">
-          CSV
-          <input id="csvUpload" type="file" accept=".csv" class="hidden" />
-        </label>
+        <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg overflow-hidden text-xs">
+          <label class="cursor-pointer hover:bg-slate-700 text-slate-200 font-medium px-2.5 py-2 transition" title="Upload Custom CSV">
+            Upload CSV
+            <input id="csvUpload" type="file" accept=".csv" class="hidden" />
+          </label>
+          <button onclick="downloadSampleCsv()" class="border-l border-slate-700 hover:bg-slate-700 text-sky-400 px-2 py-2" title="Download Sample CSV">
+            ⬇
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -120,7 +128,7 @@
         </div>
       </div>
 
-      <!-- Dynamic What-If Financial Simulator Card (Clara) -->
+      <!-- Dynamic What-If Financial Simulator Card (Clara) + Sensitivity Matrix -->
       <div id="simulatorBanner" class="hidden rounded-xl border border-emerald-500/60 bg-gradient-to-r from-emerald-950/70 to-slate-900 p-5 shadow-lg transition-all">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
@@ -143,6 +151,8 @@
             <p id="simDelta" class="text-lg font-bold text-emerald-400 mt-1">+£0</p>
           </div>
         </div>
+        <!-- 3-Tier Sensitivity Strip -->
+        <div id="simTiers" class="grid grid-cols-3 gap-2 mt-3 text-center text-[11px]"></div>
         <p id="simSummary" class="text-xs text-slate-300 mt-3"></p>
       </div>
 
@@ -232,7 +242,7 @@
     <!-- Right Column: Multi-Specialist Panel, Action Tracker & Live Log (4 Cols) -->
     <div class="lg:col-span-4 space-y-5">
 
-      <!-- Active Specialist Switcher & Voice Orb -->
+      <!-- Active Specialist Switcher & Live Audio Visualizer Orb -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col items-center text-center">
         <!-- 3 Specialist Badges -->
         <div class="grid grid-cols-3 gap-2 w-full mb-4">
@@ -250,29 +260,40 @@
           </div>
         </div>
 
+        <!-- Live Equalizer Orb -->
         <div id="voiceOrb" class="relative h-20 w-20 rounded-full bg-gradient-to-tr from-sky-600 via-indigo-500 to-emerald-400 text-sky-400 flex items-center justify-center shadow-2xl transition-all duration-300">
-          <span id="orbEmoji" class="text-2xl text-white">🎙️</span>
+          <div id="eqContainer" class="flex items-center justify-center gap-1 h-8">
+            <span class="eq-bar w-1 bg-white rounded-full h-2"></span>
+            <span class="eq-bar w-1 bg-white rounded-full h-4"></span>
+            <span class="eq-bar w-1 bg-white rounded-full h-6"></span>
+            <span class="eq-bar w-1 bg-white rounded-full h-3"></span>
+            <span class="eq-bar w-1 bg-white rounded-full h-5"></span>
+            <span class="eq-bar w-1 bg-white rounded-full h-2"></span>
+          </div>
         </div>
         <h2 id="activeSpeakerName" class="text-base font-bold text-white mt-3">Arthur — Executive Lead</h2>
         <p id="agentStatusText" class="text-xs font-medium text-slate-400 mt-0.5">Ready • Click "Start Executive Briefing"</p>
 
-        <!-- Suggested Multi-Agent Demo Prompts -->
+        <!-- One-Click Stage Prompt Chips (Also sends text command if live!) -->
         <div class="w-full mt-4 pt-3 border-t border-slate-800 text-left">
-          <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Stage Demo Prompts (Triggers Handoffs):</p>
-          <ul class="space-y-1.5 text-[11px] text-slate-300">
-            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Stage Prompts (Speak or Click):</p>
+            <span class="text-[9px] text-sky-400">Tap to send</span>
+          </div>
+          <div class="space-y-1.5 text-[11px]">
+            <button onclick="sendQuickPrompt('Arthur, show me Q3 revenue across all UK regions.')" class="w-full text-left bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 rounded-lg px-2.5 py-1.5 border border-slate-700/70 transition">
               1. "Arthur, show Q3 revenue across UK regions."
-            </li>
-            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+            </button>
+            <button onclick="sendQuickPrompt('Bring in Marcus to explain why London Online returns spiked.')" class="w-full text-left bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 rounded-lg px-2.5 py-1.5 border border-slate-700/70 transition">
               2. "Bring in Marcus to explain why London returns spiked."
-            </li>
-            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+            </button>
+            <button onclick="sendQuickPrompt('Ask Clara what happens to net profit if we cut London discounts by 5 percent.')" class="w-full text-left bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 rounded-lg px-2.5 py-1.5 border border-slate-700/70 transition">
               3. "Ask Clara what happens if we cut London discounts by 5%."
-            </li>
-            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+            </button>
+            <button onclick="sendQuickPrompt('Log that recommendation to our boardroom action plan.')" class="w-full text-left bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 rounded-lg px-2.5 py-1.5 border border-slate-700/70 transition">
               4. "Log that recommendation to our board plan."
-            </li>
-          </ul>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -340,8 +361,25 @@
     const DEFAULT_AGENT_ID = "agent_3501m7q4e95xfzaa7j19aed25ye0";
 
     // ==========================================
-    // 1. TACTILE WEB AUDIO SOUND EFFECTS
+    // 1. TACTILE WEB AUDIO SOUND EFFECTS & EQUALIZER
     // ==========================================
+    let eqInterval = null;
+    function startEqualizer(active) {
+      const bars = document.querySelectorAll('.eq-bar');
+      if (eqInterval) clearInterval(eqInterval);
+      if (!active) {
+        const defaults = [8, 16, 24, 12, 20, 8];
+        bars.forEach((b, i) => b.style.height = defaults[i] + 'px');
+        return;
+      }
+      eqInterval = setInterval(() => {
+        bars.forEach(b => {
+          const h = Math.floor(6 + Math.random() * 24);
+          b.style.height = h + 'px';
+        });
+      }, 95);
+    }
+
     function playTone(freqs, duration = 0.14, type = 'sine') {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -405,9 +443,9 @@
     // ==========================================
     function setActiveSpecialist(name) {
       const cards = {
-        Arthur: { el: document.getElementById('cardArthur'), title: 'Arthur — Executive Lead', orb: 'from-sky-600 via-indigo-500 to-emerald-400', emoji: '🎙️' },
-        Clara: { el: document.getElementById('cardClara'), title: 'Clara — Financial Strategist', orb: 'from-purple-600 via-pink-500 to-indigo-400', emoji: '📊' },
-        Marcus: { el: document.getElementById('cardMarcus'), title: 'Marcus — Operations Director', orb: 'from-amber-600 via-orange-500 to-rose-500', emoji: '🚚' }
+        Arthur: { el: document.getElementById('cardArthur'), title: 'Arthur — Executive Lead', orb: 'from-sky-600 via-indigo-500 to-emerald-400' },
+        Clara: { el: document.getElementById('cardClara'), title: 'Clara — Financial Strategist', orb: 'from-purple-600 via-pink-500 to-indigo-400' },
+        Marcus: { el: document.getElementById('cardMarcus'), title: 'Marcus — Operations Director', orb: 'from-amber-600 via-orange-500 to-rose-500' }
       };
       Object.keys(cards).forEach(k => {
         const c = cards[k].el;
@@ -421,7 +459,6 @@
       });
       const active = cards[name] || cards.Arthur;
       document.getElementById('activeSpeakerName').textContent = active.title;
-      document.getElementById('orbEmoji').textContent = active.emoji;
       const orb = document.getElementById('voiceOrb');
       orb.className = `relative h-20 w-20 rounded-full bg-gradient-to-tr ${active.orb} text-sky-400 flex items-center justify-center shadow-2xl transition-all duration-300`;
     }
@@ -673,16 +710,19 @@
         const rows = getFilteredRows();
         const summary = computeSummary(rows);
 
-        let uplift = 0;
+        const calcUplift = (p) => {
+          if (lever === 'reduce_returns') return Math.round(summary.totalRevenue * (p / 100) * 0.65);
+          if (lever === 'boost_revenue') return Math.round(summary.totalRevenue * (p / 100) * (summary.avgMargin / 100));
+          return Math.round(summary.totalRevenue * (p / 100) * 0.85);
+        };
+
+        const uplift = calcUplift(pct);
         let explanation = '';
         if (lever === 'reduce_returns') {
-          uplift = Math.round(summary.totalRevenue * (pct / 100) * 0.65);
           explanation = `Reducing return rates by ${pct}% in ${currentState.region} recovers reverse-logistics fees and preserves £${uplift.toLocaleString()} in net profit.`;
         } else if (lever === 'boost_revenue') {
-          uplift = Math.round(summary.totalRevenue * (pct / 100) * (summary.avgMargin / 100));
           explanation = `Growing top-line revenue by ${pct}% at ${summary.avgMargin}% margins adds £${uplift.toLocaleString()} directly to net profit.`;
         } else {
-          uplift = Math.round(summary.totalRevenue * (pct / 100) * 0.85);
           explanation = `Trimming promotional discounts by ${pct}% in ${currentState.region} flows straight to bottom-line margin, adding £${uplift.toLocaleString()} in net profit.`;
         }
 
@@ -696,6 +736,19 @@
         document.getElementById('simAfter').textContent = formatGBP(projectedProfit);
         document.getElementById('simDelta').textContent = `+${formatGBP(uplift)}`;
         document.getElementById('simSummary').textContent = explanation;
+
+        // Render 3-Tier Sensitivity Matrix (Conservative 3% / Base 5% / Aggressive 8%)
+        const tiers = [
+          { label: 'Conservative (3%)', val: calcUplift(3) },
+          { label: 'Target (5%)', val: calcUplift(5) },
+          { label: 'Stretch (8%)', val: calcUplift(8) }
+        ];
+        document.getElementById('simTiers').innerHTML = tiers.map(t => `
+          <div class="bg-slate-900/80 border border-slate-800 rounded py-1.5 px-2">
+            <span class="text-slate-400 block">${t.label}</span>
+            <span class="text-emerald-400 font-bold">+${formatGBP(t.val)}</span>
+          </div>
+        `).join('');
 
         return JSON.stringify({
           simulation_complete: true,
@@ -735,6 +788,17 @@
 
     window.manualReset = () => clientTools.reset_dashboard();
 
+    window.sendQuickPrompt = (text) => {
+      if (!conversation) {
+        alert('Click "Start Executive Briefing" first to connect Arthur, Clara & Marcus!');
+        return;
+      }
+      appendMessage('You', text);
+      if (typeof conversation.sendUserMessage === 'function') {
+        conversation.sendUserMessage(text);
+      }
+    };
+
     function renderActionItems() {
       document.getElementById('actionCount').textContent = `${actionItems.length} item${actionItems.length === 1 ? '' : 's'}`;
       const list = document.getElementById('actionList');
@@ -750,8 +814,18 @@
     }
 
     // ==========================================
-    // 6. MODALS (BOARD MEMO & QR SHARE)
+    // 6. MODALS & SAMPLE CSV DOWNLOAD
     // ==========================================
+    window.downloadSampleCsv = () => {
+      const headers = 'region,channel,category,quarter,revenue,margin,returns,discount\n';
+      const rows = dataset.map(r => `${r.region},${r.channel},${r.category},${r.quarter},${r.revenue},${r.marginPct},${r.returnRate},${r.discountPct}`).join('\n');
+      const blob = new Blob([headers + rows], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'uk_retail_performance_sample.csv';
+      a.click();
+    };
+
     window.openMemoModal = () => {
       const summary = computeSummary(getFilteredRows());
       const content = document.getElementById('memoContent');
@@ -821,6 +895,7 @@
       if (conversation) {
         await conversation.endSession();
         conversation = null;
+        startEqualizer(false);
         updateConnectionUI(false);
         return;
       }
@@ -847,6 +922,7 @@
           },
           onDisconnect: () => {
             conversation = null;
+            startEqualizer(false);
             updateConnectionUI(false);
             statusText.textContent = 'Briefing ended';
           },
@@ -854,9 +930,11 @@
             voiceOrb.classList.remove('speaking-ring', 'listening-ring');
             if (mode.mode === 'speaking') {
               voiceOrb.classList.add('speaking-ring');
+              startEqualizer(true);
               statusText.textContent = 'Speaking...';
             } else {
               voiceOrb.classList.add('listening-ring');
+              startEqualizer(false);
               statusText.textContent = 'Listening...';
             }
           },
@@ -865,6 +943,7 @@
           },
           onError: (err) => {
             console.error(err);
+            startEqualizer(false);
             statusText.textContent = `Error: ${err.message || err}`;
           }
         });
