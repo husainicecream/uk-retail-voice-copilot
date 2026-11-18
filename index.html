@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arthur, Clara & Marcus | UK Retail Executive Analytics Copilot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.92); opacity: 0.85; }
+      70% { transform: scale(1.28); opacity: 0; }
+      100% { transform: scale(1.28); opacity: 0; }
+    }
+    .speaking-ring::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 9999px;
+      border: 3px solid currentColor;
+      animation: pulse-ring 1.3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    .listening-ring::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 9999px;
+      border: 3px solid #34d399;
+      animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #memoModal, #memoModal * { visibility: visible; }
+      #memoModal { position: absolute; inset: 0; background: white; color: black; }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+
+  <!-- Top Navigation & Agent Connection Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 via-indigo-500 to-purple-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-sky-500/20">
+          ACM
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">Executive Retail Copilot</h1>
+            <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">Multi-Agent v2</span>
+          </div>
+          <p class="text-xs text-slate-400">Arthur (Lead) • Clara (Finance) • Marcus (Operations)</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <input
+          id="agentIdInput"
+          type="text"
+          value="agent_3501m7q4e95xfzaa7j19aed25ye0"
+          placeholder="Agent ID (agent_...)"
+          class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 w-48 sm:w-56 focus:outline-none focus:border-sky-500"
+        />
+        <button
+          id="connectBtn"
+          class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs sm:text-sm px-4 py-2 rounded-lg transition shadow-lg shadow-sky-500/20 flex items-center gap-2"
+        >
+          <span id="connectBtnIcon">🎙️</span>
+          <span id="connectBtnText">Start Executive Briefing</span>
+        </button>
+        <button
+          onclick="openMemoModal()"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition flex items-center gap-1.5"
+        >
+          <span>📄</span> Board Memo
+        </button>
+        <button
+          onclick="openQrModal()"
+          class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg transition flex items-center gap-1.5"
+        >
+          <span>📱</span> Share QR
+        </button>
+        <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg transition">
+          CSV
+          <input id="csvUpload" type="file" accept=".csv" class="hidden" />
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Column: Visual Analytics Dashboard (8 Cols) -->
+    <div class="lg:col-span-8 space-y-5">
+
+      <!-- Active Filter Pills & Reset -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <span class="text-slate-400 font-medium uppercase tracking-wider mr-1">Active View:</span>
+          <span id="badgeRegion" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700">Region: All</span>
+          <span id="badgeChannel" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700">Channel: All</span>
+          <span id="badgeCategory" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-emerald-300 border border-slate-700">Category: All</span>
+          <span id="badgeQuarter" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-slate-700">Period: Full Year</span>
+          <span id="badgeMetric" class="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 font-semibold">Metric: REVENUE</span>
+        </div>
+        <button onclick="manualReset()" class="text-xs text-slate-400 hover:text-white underline">Reset View</button>
+      </div>
+
+      <!-- Dynamic Executive Alert / Anomaly Banner -->
+      <div id="anomalyBanner" class="hidden rounded-xl border border-rose-500/60 bg-rose-950/40 p-4 shadow-lg transition-all">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl">🚨</span>
+            <div>
+              <h3 id="anomalyTitle" class="font-bold text-rose-300 text-sm uppercase tracking-wide">Executive Anomaly Detected</h3>
+              <p id="anomalyDesc" class="text-sm text-slate-200 mt-1"></p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('anomalyBanner').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs">Dismiss</button>
+        </div>
+      </div>
+
+      <!-- Dynamic What-If Financial Simulator Card (Clara) -->
+      <div id="simulatorBanner" class="hidden rounded-xl border border-emerald-500/60 bg-gradient-to-r from-emerald-950/70 to-slate-900 p-5 shadow-lg transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">📈</span>
+            <h3 id="simTitle" class="font-bold text-emerald-300 text-sm uppercase tracking-wide">Clara's Live What-If Projection</h3>
+          </div>
+          <button onclick="document.getElementById('simulatorBanner').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs">Close</button>
+        </div>
+        <div class="grid grid-cols-3 gap-4 text-center">
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-slate-800">
+            <p class="text-xs text-slate-400">Current Net Profit</p>
+            <p id="simBefore" class="text-lg font-bold text-slate-200 mt-1">£0</p>
+          </div>
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-emerald-500/40">
+            <p class="text-xs text-emerald-400">Projected Net Profit</p>
+            <p id="simAfter" class="text-lg font-bold text-emerald-300 mt-1">£0</p>
+          </div>
+          <div class="bg-emerald-500/15 rounded-lg p-3 border border-emerald-500/50">
+            <p class="text-xs text-emerald-300">Net Profit Uplift</p>
+            <p id="simDelta" class="text-lg font-bold text-emerald-400 mt-1">+£0</p>
+          </div>
+        </div>
+        <p id="simSummary" class="text-xs text-slate-300 mt-3"></p>
+      </div>
+
+      <!-- 4 KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400 font-medium">Total Revenue</p>
+          <p id="kpiRevenue" class="text-2xl font-bold text-white mt-1">£0</p>
+          <p class="text-[11px] text-emerald-400 mt-1">Active selection</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400 font-medium">Net Profit</p>
+          <p id="kpiProfit" class="text-2xl font-bold text-white mt-1">£0</p>
+          <p class="text-[11px] text-slate-400 mt-1">Net of promos & returns</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400 font-medium">Gross Margin %</p>
+          <p id="kpiMargin" class="text-2xl font-bold text-sky-400 mt-1">0.0%</p>
+          <p class="text-[11px] text-slate-400 mt-1">Benchmark: 28.0%</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400 font-medium">Return Rate %</p>
+          <p id="kpiReturns" class="text-2xl font-bold text-amber-400 mt-1">0.0%</p>
+          <p class="text-[11px] text-slate-400 mt-1">Alert threshold: &gt;9.0%</p>
+        </div>
+      </div>
+
+      <!-- Primary & Secondary Charts -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 id="mainChartTitle" class="text-sm font-semibold text-slate-200">Performance by UK Region</h2>
+            <span class="text-[11px] text-slate-400">Voice-Synced</span>
+          </div>
+          <div class="h-56">
+            <canvas id="regionChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 id="catChartTitle" class="text-sm font-semibold text-slate-200">Breakdown by Category</h2>
+            <span class="text-[11px] text-slate-400">Online vs In-Store</span>
+          </div>
+          <div class="h-56">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quarterly Trend Chart -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 id="trendChartTitle" class="text-sm font-semibold text-slate-200">Quarterly Trajectory (Q1 – Q4)</h2>
+          <span id="recordCount" class="text-xs text-slate-400">0 segments active</span>
+        </div>
+        <div class="h-44">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Live Segment Data Table (Judge Verification) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-200">Underlying UK Store & Channel Ledger</h2>
+          <span class="text-[11px] text-slate-400">Live-filtered ground truth</span>
+        </div>
+        <div class="overflow-x-auto max-h-48 overflow-y-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900">
+              <tr>
+                <th class="py-2 pr-3">Region</th>
+                <th class="py-2 pr-3">Channel</th>
+                <th class="py-2 pr-3">Category</th>
+                <th class="py-2 pr-3">Qtr</th>
+                <th class="py-2 pr-3 text-right">Revenue</th>
+                <th class="py-2 pr-3 text-right">Margin</th>
+                <th class="py-2 text-right">Returns</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerBody" class="divide-y divide-slate-800/60 text-slate-300"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Multi-Specialist Panel, Action Tracker & Live Log (4 Cols) -->
+    <div class="lg:col-span-4 space-y-5">
+
+      <!-- Active Specialist Switcher & Voice Orb -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col items-center text-center">
+        <!-- 3 Specialist Badges -->
+        <div class="grid grid-cols-3 gap-2 w-full mb-4">
+          <div id="cardArthur" class="rounded-lg p-2 border border-sky-500 bg-sky-500/15 transition">
+            <p class="text-xs font-bold text-sky-300">Arthur</p>
+            <p class="text-[10px] text-slate-300">Exec Lead</p>
+          </div>
+          <div id="cardClara" class="rounded-lg p-2 border border-slate-800 bg-slate-800/40 opacity-60 transition">
+            <p class="text-xs font-bold text-purple-300">Clara</p>
+            <p class="text-[10px] text-slate-400">Finance</p>
+          </div>
+          <div id="cardMarcus" class="rounded-lg p-2 border border-slate-800 bg-slate-800/40 opacity-60 transition">
+            <p class="text-xs font-bold text-amber-300">Marcus</p>
+            <p class="text-[10px] text-slate-400">Operations</p>
+          </div>
+        </div>
+
+        <div id="voiceOrb" class="relative h-20 w-20 rounded-full bg-gradient-to-tr from-sky-600 via-indigo-500 to-emerald-400 text-sky-400 flex items-center justify-center shadow-2xl transition-all duration-300">
+          <span id="orbEmoji" class="text-2xl text-white">🎙️</span>
+        </div>
+        <h2 id="activeSpeakerName" class="text-base font-bold text-white mt-3">Arthur — Executive Lead</h2>
+        <p id="agentStatusText" class="text-xs font-medium text-slate-400 mt-0.5">Ready • Click "Start Executive Briefing"</p>
+
+        <!-- Suggested Multi-Agent Demo Prompts -->
+        <div class="w-full mt-4 pt-3 border-t border-slate-800 text-left">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Stage Demo Prompts (Triggers Handoffs):</p>
+          <ul class="space-y-1.5 text-[11px] text-slate-300">
+            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+              1. "Arthur, show Q3 revenue across UK regions."
+            </li>
+            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+              2. "Bring in Marcus to explain why London returns spiked."
+            </li>
+            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+              3. "Ask Clara what happens if we cut London discounts by 5%."
+            </li>
+            <li class="bg-slate-800/70 rounded-lg px-2.5 py-1.5 border border-slate-700/60">
+              4. "Log that recommendation to our board plan."
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Live Boardroom Action Plan (Populated by log_action_item) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-emerald-300">Boardroom Action Plan</h3>
+          <span id="actionCount" class="text-[11px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">0 items</span>
+        </div>
+        <div id="actionList" class="space-y-2 mt-3 max-h-40 overflow-y-auto text-xs">
+          <p class="text-slate-500 italic text-center py-3">Ask Arthur, Clara, or Marcus to log recommendations here...</p>
+        </div>
+      </div>
+
+      <!-- Live Conversation & Client Tool Activity Log -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-[310px]">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Live Transcript & Tool Calls</h3>
+          <span id="toolCallCounter" class="text-[11px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full">0 calls</span>
+        </div>
+        <div id="transcriptLog" class="flex-1 overflow-y-auto space-y-2.5 py-3 pr-1 text-xs">
+          <div class="text-slate-500 italic text-center mt-8">
+            Live multi-agent transcript and tool telemetry will stream here...
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Executive Board Memo Modal -->
+  <div id="memoModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-white">Executive Boardroom Briefing Memo</h3>
+          <p class="text-xs text-slate-400">Generated by Arthur, Clara & Marcus • UK Retail Operations</p>
+        </div>
+        <button onclick="document.getElementById('memoModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div id="memoContent" class="py-4 space-y-3 text-sm text-slate-200"></div>
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+        <button onclick="window.print()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-lg">Print / Save PDF</button>
+        <button onclick="document.getElementById('memoModal').classList.add('hidden')" class="bg-slate-800 text-slate-200 text-xs px-4 py-2 rounded-lg">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Share Modal for Judges & Other Teams -->
+  <div id="qrModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+      <h3 class="text-base font-bold text-white">Test Live on Your Device</h3>
+      <p class="text-xs text-slate-400 mt-1">Scan to open the UK Retail Analytics Copilot</p>
+      <div class="bg-white p-3 rounded-xl inline-block my-4">
+        <img id="qrImage" src="" alt="QR Code" class="w-44 h-44" />
+      </div>
+      <p id="shareUrlText" class="text-[11px] text-sky-400 break-all mb-4"></p>
+      <button onclick="document.getElementById('qrModal').classList.add('hidden')" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium py-2 rounded-lg">Close</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Conversation } from 'https://cdn.jsdelivr.net/npm/@elevenlabs/client/+esm';
+
+    const DEFAULT_AGENT_ID = "agent_3501m7q4e95xfzaa7j19aed25ye0";
+
+    // ==========================================
+    // 1. TACTILE WEB AUDIO SOUND EFFECTS
+    // ==========================================
+    function playTone(freqs, duration = 0.14, type = 'sine') {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        freqs.forEach((f, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(f, ctx.currentTime + idx * 0.09);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.09 + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + idx * 0.09);
+          osc.stop(ctx.currentTime + idx * 0.09 + duration);
+        });
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 2. UK RETAIL DATASET (WITH PLANTED ANOMALIES)
+    // ==========================================
+    const DEFAULT_DATA = [
+      { region: 'London', channel: 'Online', category: 'Electronics', quarter: 'Q1', revenue: 420000, marginPct: 26.5, returnRate: 8.2, discountPct: 6.0 },
+      { region: 'London', channel: 'Online', category: 'Electronics', quarter: 'Q2', revenue: 480000, marginPct: 24.0, returnRate: 9.5, discountPct: 8.5 },
+      { region: 'London', channel: 'Online', category: 'Electronics', quarter: 'Q3', revenue: 690000, marginPct: 16.2, returnRate: 14.8, discountPct: 15.0 },
+      { region: 'London', channel: 'Online', category: 'Electronics', quarter: 'Q4', revenue: 780000, marginPct: 15.4, returnRate: 15.6, discountPct: 16.5 },
+      { region: 'London', channel: 'Online', category: 'Home & Kitchen', quarter: 'Q3', revenue: 340000, marginPct: 19.5, returnRate: 12.4, discountPct: 12.0 },
+      { region: 'London', channel: 'Online', category: 'Apparel', quarter: 'Q3', revenue: 290000, marginPct: 29.0, returnRate: 11.2, discountPct: 7.5 },
+      { region: 'London', channel: 'In-Store', category: 'Electronics', quarter: 'Q3', revenue: 310000, marginPct: 31.2, returnRate: 4.1, discountPct: 3.0 },
+      { region: 'London', channel: 'In-Store', category: 'Beauty', quarter: 'Q2', revenue: 260000, marginPct: 38.5, returnRate: 2.3, discountPct: 2.0 },
+      { region: 'London', channel: 'In-Store', category: 'Grocery', quarter: 'Q4', revenue: 390000, marginPct: 24.8, returnRate: 1.1, discountPct: 1.5 },
+
+      { region: 'Manchester', channel: 'Online', category: 'Electronics', quarter: 'Q1', revenue: 280000, marginPct: 29.4, returnRate: 6.8, discountPct: 4.5 },
+      { region: 'Manchester', channel: 'Online', category: 'Apparel', quarter: 'Q3', revenue: 330000, marginPct: 33.1, returnRate: 7.4, discountPct: 5.0 },
+      { region: 'Manchester', channel: 'In-Store', category: 'Home & Kitchen', quarter: 'Q2', revenue: 295000, marginPct: 32.0, returnRate: 3.5, discountPct: 3.0 },
+      { region: 'Manchester', channel: 'In-Store', category: 'Electronics', quarter: 'Q3', revenue: 360000, marginPct: 30.8, returnRate: 4.0, discountPct: 3.5 },
+      { region: 'Manchester', channel: 'In-Store', category: 'Beauty', quarter: 'Q4', revenue: 310000, marginPct: 39.2, returnRate: 2.1, discountPct: 2.0 },
+
+      { region: 'Birmingham', channel: 'Online', category: 'Home & Kitchen', quarter: 'Q3', revenue: 275000, marginPct: 22.8, returnRate: 8.9, discountPct: 7.0 },
+      { region: 'Birmingham', channel: 'Online', category: 'Beauty', quarter: 'Q2', revenue: 220000, marginPct: 36.4, returnRate: 3.2, discountPct: 4.0 },
+      { region: 'Birmingham', channel: 'In-Store', category: 'Grocery', quarter: 'Q1', revenue: 310000, marginPct: 25.5, returnRate: 1.0, discountPct: 1.0 },
+      { region: 'Birmingham', channel: 'In-Store', category: 'Apparel', quarter: 'Q3', revenue: 265000, marginPct: 31.8, returnRate: 4.4, discountPct: 3.5 },
+      { region: 'Birmingham', channel: 'In-Store', category: 'Electronics', quarter: 'Q4', revenue: 340000, marginPct: 29.5, returnRate: 4.5, discountPct: 4.0 },
+
+      { region: 'Leeds', channel: 'Online', category: 'Apparel', quarter: 'Q2', revenue: 210000, marginPct: 35.0, returnRate: 6.1, discountPct: 4.0 },
+      { region: 'Leeds', channel: 'Online', category: 'Beauty', quarter: 'Q3', revenue: 245000, marginPct: 40.2, returnRate: 2.8, discountPct: 3.0 },
+      { region: 'Leeds', channel: 'In-Store', category: 'Home & Kitchen', quarter: 'Q1', revenue: 230000, marginPct: 33.6, returnRate: 3.0, discountPct: 2.5 },
+      { region: 'Leeds', channel: 'In-Store', category: 'Grocery', quarter: 'Q3', revenue: 290000, marginPct: 26.8, returnRate: 0.9, discountPct: 1.0 },
+      { region: 'Leeds', channel: 'In-Store', category: 'Electronics', quarter: 'Q4', revenue: 280000, marginPct: 32.1, returnRate: 3.8, discountPct: 3.0 }
+    ];
+
+    let dataset = [...DEFAULT_DATA];
+    let actionItems = [];
+    let currentState = { region: 'All', channel: 'All', category: 'All', quarter: 'All', metric: 'revenue' };
+    let conversation = null;
+    let toolCallsCount = 0;
+    let regionChart, categoryChart, trendChart;
+
+    // ==========================================
+    // 3. SPECIALIST UI SWITCHER (ARTHUR / CLARA / MARCUS)
+    // ==========================================
+    function setActiveSpecialist(name) {
+      const cards = {
+        Arthur: { el: document.getElementById('cardArthur'), title: 'Arthur — Executive Lead', orb: 'from-sky-600 via-indigo-500 to-emerald-400', emoji: '🎙️' },
+        Clara: { el: document.getElementById('cardClara'), title: 'Clara — Financial Strategist', orb: 'from-purple-600 via-pink-500 to-indigo-400', emoji: '📊' },
+        Marcus: { el: document.getElementById('cardMarcus'), title: 'Marcus — Operations Director', orb: 'from-amber-600 via-orange-500 to-rose-500', emoji: '🚚' }
+      };
+      Object.keys(cards).forEach(k => {
+        const c = cards[k].el;
+        if (k === name) {
+          c.classList.remove('opacity-60', 'border-slate-800');
+          c.classList.add('border-sky-400', 'scale-[1.03]');
+        } else {
+          c.classList.add('opacity-60', 'border-slate-800');
+          c.classList.remove('border-sky-400', 'scale-[1.03]');
+        }
+      });
+      const active = cards[name] || cards.Arthur;
+      document.getElementById('activeSpeakerName').textContent = active.title;
+      document.getElementById('orbEmoji').textContent = active.emoji;
+      const orb = document.getElementById('voiceOrb');
+      orb.className = `relative h-20 w-20 rounded-full bg-gradient-to-tr ${active.orb} text-sky-400 flex items-center justify-center shadow-2xl transition-all duration-300`;
+    }
+
+    // ==========================================
+    // 4. DATA AGGREGATION, CHARTS & LEDGER
+    // ==========================================
+    function normalizeFilter(val, allowed) {
+      if (!val) return 'All';
+      const match = allowed.find(item => item.toLowerCase() === String(val).trim().toLowerCase());
+      return match || 'All';
+    }
+
+    function getFilteredRows(state = currentState) {
+      return dataset.filter(row => {
+        if (state.region !== 'All' && row.region.toLowerCase() !== state.region.toLowerCase()) return false;
+        if (state.channel !== 'All' && row.channel.toLowerCase() !== state.channel.toLowerCase()) return false;
+        if (state.category !== 'All' && row.category.toLowerCase() !== state.category.toLowerCase()) return false;
+        if (state.quarter !== 'All' && row.quarter.toLowerCase() !== state.quarter.toLowerCase()) return false;
+        return true;
+      });
+    }
+
+    function computeSummary(rows) {
+      if (!rows.length) return { totalRevenue: 0, totalProfit: 0, avgMargin: 0, avgReturns: 0, avgDiscount: 0, count: 0 };
+      const totalRevenue = rows.reduce((sum, r) => sum + r.revenue, 0);
+      const totalProfit = rows.reduce((sum, r) => sum + (r.revenue * (r.marginPct / 100)), 0);
+      const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+      const avgReturns = rows.reduce((sum, r) => sum + r.returnRate, 0) / rows.length;
+      const avgDiscount = rows.reduce((sum, r) => sum + (r.discountPct || 5), 0) / rows.length;
+      return {
+        totalRevenue: Math.round(totalRevenue),
+        totalProfit: Math.round(totalProfit),
+        avgMargin: Number(avgMargin.toFixed(1)),
+        avgReturns: Number(avgReturns.toFixed(1)),
+        avgDiscount: Number(avgDiscount.toFixed(1)),
+        count: rows.length
+      };
+    }
+
+    function formatGBP(num) {
+      if (num >= 1000000) return '£' + (num / 1000000).toFixed(2) + 'M';
+      if (num >= 1000) return '£' + Math.round(num / 1000) + 'k';
+      return '£' + num.toLocaleString();
+    }
+
+    function renderDashboard() {
+      const rows = getFilteredRows();
+      const summary = computeSummary(rows);
+
+      document.getElementById('badgeRegion').textContent = `Region: ${currentState.region}`;
+      document.getElementById('badgeChannel').textContent = `Channel: ${currentState.channel}`;
+      document.getElementById('badgeCategory').textContent = `Category: ${currentState.category}`;
+      document.getElementById('badgeQuarter').textContent = `Period: ${currentState.quarter === 'All' ? 'Full Year' : currentState.quarter}`;
+      document.getElementById('badgeMetric').textContent = `Metric: ${currentState.metric.toUpperCase()}`;
+      document.getElementById('recordCount').textContent = `${summary.count} segments active`;
+
+      document.getElementById('kpiRevenue').textContent = formatGBP(summary.totalRevenue);
+      document.getElementById('kpiProfit').textContent = formatGBP(summary.totalProfit);
+      document.getElementById('kpiMargin').textContent = `${summary.avgMargin}%`;
+      document.getElementById('kpiMargin').className = `text-2xl font-bold mt-1 ${summary.avgMargin < 25 ? 'text-rose-400' : 'text-sky-400'}`;
+      document.getElementById('kpiReturns').textContent = `${summary.avgReturns}%`;
+      document.getElementById('kpiReturns').className = `text-2xl font-bold mt-1 ${summary.avgReturns > 9 ? 'text-rose-400' : 'text-emerald-400'}`;
+
+      const ledgerBody = document.getElementById('ledgerBody');
+      ledgerBody.innerHTML = rows.map(r => `
+        <tr class="hover:bg-slate-800/40">
+          <td class="py-1.5 pr-3 font-medium text-white">${r.region}</td>
+          <td class="py-1.5 pr-3">${r.channel}</td>
+          <td class="py-1.5 pr-3">${r.category}</td>
+          <td class="py-1.5 pr-3">${r.quarter}</td>
+          <td class="py-1.5 pr-3 text-right font-mono">${formatGBP(r.revenue)}</td>
+          <td class="py-1.5 pr-3 text-right font-mono ${r.marginPct < 22 ? 'text-rose-400 font-bold' : 'text-sky-300'}">${r.marginPct}%</td>
+          <td class="py-1.5 text-right font-mono ${r.returnRate > 10 ? 'text-rose-400 font-bold' : 'text-slate-300'}">${r.returnRate}%</td>
+        </tr>
+      `).join('');
+
+      const extractMetric = (subset) => {
+        if (!subset.length) return 0;
+        const s = computeSummary(subset);
+        if (currentState.metric === 'margin') return s.avgMargin;
+        if (currentState.metric === 'returns') return s.avgReturns;
+        return Math.round(s.totalRevenue / 1000);
+      };
+
+      const metricLabel = currentState.metric === 'margin' ? 'Gross Margin (%)'
+        : currentState.metric === 'returns' ? 'Return Rate (%)'
+        : 'Revenue (£k)';
+
+      const regions = ['London', 'Manchester', 'Birmingham', 'Leeds'];
+      const regionValues = regions.map(reg => extractMetric(rows.filter(r => r.region === reg)));
+      document.getElementById('mainChartTitle').textContent = `${metricLabel} by UK Region`;
+
+      if (regionChart) regionChart.destroy();
+      regionChart = new Chart(document.getElementById('regionChart'), {
+        type: 'bar',
+        data: {
+          labels: regions,
+          datasets: [{
+            label: metricLabel,
+            data: regionValues,
+            backgroundColor: regions.map(r => r === 'London' && currentState.metric !== 'revenue' ? '#f43f5e' : '#38bdf8'),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+
+      const categories = ['Electronics', 'Home & Kitchen', 'Apparel', 'Beauty', 'Grocery'];
+      const onlineCatValues = categories.map(cat => extractMetric(rows.filter(r => r.category === cat && r.channel === 'Online')));
+      const storeCatValues = categories.map(cat => extractMetric(rows.filter(r => r.category === cat && r.channel === 'In-Store')));
+      document.getElementById('catChartTitle').textContent = `${metricLabel} by Category`;
+
+      if (categoryChart) categoryChart.destroy();
+      categoryChart = new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: {
+          labels: categories,
+          datasets: [
+            { label: 'Online', data: onlineCatValues, backgroundColor: '#818cf8', borderRadius: 4 },
+            { label: 'In-Store', data: storeCatValues, backgroundColor: '#34d399', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#cbd5e1', boxWidth: 12 } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const quarterValues = quarters.map(q => extractMetric(rows.filter(r => r.quarter === q)));
+      document.getElementById('trendChartTitle').textContent = `Quarterly ${metricLabel} Trajectory`;
+
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+          labels: quarters,
+          datasets: [{
+            label: metricLabel,
+            data: quarterValues,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 5,
+            pointBackgroundColor: '#38bdf8'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+
+      return summary;
+    }
+
+    // ==========================================
+    // 5. CLIENT TOOLS FOR ARTHUR, CLARA & MARCUS
+    // ==========================================
+    const clientTools = {
+      update_dashboard: async (params = {}) => {
+        logToolCall('update_dashboard', params);
+        playTone([520, 660], 0.1);
+        if (params.region) currentState.region = normalizeFilter(params.region, ['All', 'London', 'Manchester', 'Birmingham', 'Leeds']);
+        if (params.channel) currentState.channel = normalizeFilter(params.channel, ['All', 'Online', 'In-Store']);
+        if (params.category) currentState.category = normalizeFilter(params.category, ['All', 'Electronics', 'Home & Kitchen', 'Apparel', 'Beauty', 'Grocery']);
+        if (params.quarter) currentState.quarter = normalizeFilter(params.quarter, ['All', 'Q1', 'Q2', 'Q3', 'Q4']);
+        if (params.metric) currentState.metric = normalizeFilter(params.metric, ['revenue', 'margin', 'returns']).toLowerCase();
+
+        const summary = renderDashboard();
+        return JSON.stringify({
+          status: 'dashboard_updated',
+          active_filters: currentState,
+          metrics: {
+            total_revenue_gbp: summary.totalRevenue,
+            net_profit_gbp: summary.totalProfit,
+            gross_margin_percent: summary.avgMargin,
+            return_rate_percent: summary.avgReturns,
+            average_discount_percent: summary.avgDiscount
+          }
+        });
+      },
+
+      highlight_anomaly: async (params = {}) => {
+        logToolCall('highlight_anomaly', params);
+        playTone([440, 330, 440], 0.16, 'triangle');
+        const focus = (params.focus_area || 'margin_drop').toLowerCase();
+        if (focus === 'high_returns') setActiveSpecialist('Marcus');
+
+        currentState.region = 'London';
+        currentState.channel = 'Online';
+        currentState.metric = focus === 'high_returns' ? 'returns' : 'margin';
+        const summary = renderDashboard();
+
+        const banner = document.getElementById('anomalyBanner');
+        const title = document.getElementById('anomalyTitle');
+        const desc = document.getElementById('anomalyDesc');
+        banner.classList.remove('hidden');
+
+        if (focus === 'high_returns') {
+          title.textContent = 'Marcus Operations Alert: London Online Return Spike (15.6%)';
+          desc.textContent = 'London Online Electronics returns jumped from 8.2% in Q1 to 15.6% in Q4 due to unverified third-party couriers and high-discount impulse orders—costing £142k in reverse logistics.';
+        } else {
+          title.textContent = 'Profit Margin Compression Alert: London Online (-11.1 pts)';
+          desc.textContent = 'Despite Q3–Q4 revenue surging to £1.47M, London Online gross margin fell from 26.5% to 15.4% due to aggressive 16.5% promotional discounting paired with 15.2% product returns.';
+        }
+
+        return JSON.stringify({
+          anomaly_detected: true,
+          segment: 'London Online (Electronics & Home)',
+          q1_margin_percent: 26.5,
+          q4_margin_percent: 15.4,
+          peak_return_rate_percent: 15.6,
+          peak_discount_percent: 16.5,
+          current_view_metrics: summary
+        });
+      },
+
+      simulate_scenario: async (params = {}) => {
+        logToolCall('simulate_scenario', params);
+        setActiveSpecialist('Clara');
+        playTone([523, 659, 784, 1046], 0.14);
+
+        const lever = (params.lever || 'cut_discounts').toLowerCase();
+        const pct = Number(params.percentage_change) || 5;
+        const targetRegion = normalizeFilter(params.region, ['All', 'London', 'Manchester', 'Birmingham', 'Leeds']);
+        if (targetRegion !== 'All') currentState.region = targetRegion;
+
+        const rows = getFilteredRows();
+        const summary = computeSummary(rows);
+
+        let uplift = 0;
+        let explanation = '';
+        if (lever === 'reduce_returns') {
+          uplift = Math.round(summary.totalRevenue * (pct / 100) * 0.65);
+          explanation = `Reducing return rates by ${pct}% in ${currentState.region} recovers reverse-logistics fees and preserves £${uplift.toLocaleString()} in net profit.`;
+        } else if (lever === 'boost_revenue') {
+          uplift = Math.round(summary.totalRevenue * (pct / 100) * (summary.avgMargin / 100));
+          explanation = `Growing top-line revenue by ${pct}% at ${summary.avgMargin}% margins adds £${uplift.toLocaleString()} directly to net profit.`;
+        } else {
+          uplift = Math.round(summary.totalRevenue * (pct / 100) * 0.85);
+          explanation = `Trimming promotional discounts by ${pct}% in ${currentState.region} flows straight to bottom-line margin, adding £${uplift.toLocaleString()} in net profit.`;
+        }
+
+        const projectedProfit = summary.totalProfit + uplift;
+        renderDashboard();
+
+        const simBanner = document.getElementById('simulatorBanner');
+        simBanner.classList.remove('hidden');
+        document.getElementById('simTitle').textContent = `Clara's Simulation: ${lever.replace('_', ' ').toUpperCase()} (${pct}% in ${currentState.region})`;
+        document.getElementById('simBefore').textContent = formatGBP(summary.totalProfit);
+        document.getElementById('simAfter').textContent = formatGBP(projectedProfit);
+        document.getElementById('simDelta').textContent = `+${formatGBP(uplift)}`;
+        document.getElementById('simSummary').textContent = explanation;
+
+        return JSON.stringify({
+          simulation_complete: true,
+          region: currentState.region,
+          lever: lever,
+          percentage_change: pct,
+          current_profit_gbp: summary.totalProfit,
+          projected_profit_gbp: projectedProfit,
+          net_profit_uplift_gbp: uplift,
+          summary: explanation
+        });
+      },
+
+      log_action_item: async (params = {}) => {
+        logToolCall('log_action_item', params);
+        playTone([660, 880], 0.12);
+        const item = {
+          owner: params.owner || 'Arthur',
+          action: params.action || 'Cap London Online promotional discounts at 10%',
+          impact: params.impact || '+£85k Net Profit'
+        };
+        actionItems.push(item);
+        renderActionItems();
+        return JSON.stringify({ status: 'action_logged', total_items: actionItems.length, item });
+      },
+
+      reset_dashboard: async () => {
+        logToolCall('reset_dashboard', {});
+        setActiveSpecialist('Arthur');
+        currentState = { region: 'All', channel: 'All', category: 'All', quarter: 'All', metric: 'revenue' };
+        document.getElementById('anomalyBanner').classList.add('hidden');
+        document.getElementById('simulatorBanner').classList.add('hidden');
+        const summary = renderDashboard();
+        return JSON.stringify({ status: 'dashboard_reset', metrics: summary });
+      }
+    };
+
+    window.manualReset = () => clientTools.reset_dashboard();
+
+    function renderActionItems() {
+      document.getElementById('actionCount').textContent = `${actionItems.length} item${actionItems.length === 1 ? '' : 's'}`;
+      const list = document.getElementById('actionList');
+      list.innerHTML = actionItems.map((it, i) => `
+        <div class="bg-slate-800/80 border border-slate-700 rounded-lg p-2.5 flex items-start justify-between gap-2">
+          <div>
+            <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">${it.owner}</span>
+            <p class="text-slate-200 mt-1">${i + 1}. ${it.action}</p>
+          </div>
+          <span class="text-[11px] font-bold text-emerald-400 whitespace-nowrap">${it.impact}</span>
+        </div>
+      `).join('');
+    }
+
+    // ==========================================
+    // 6. MODALS (BOARD MEMO & QR SHARE)
+    // ==========================================
+    window.openMemoModal = () => {
+      const summary = computeSummary(getFilteredRows());
+      const content = document.getElementById('memoContent');
+      content.innerHTML = `
+        <div class="bg-slate-800/70 p-3 rounded-lg border border-slate-700">
+          <p class="text-xs uppercase text-slate-400 font-semibold">Current View Snapshot (${currentState.region} • ${currentState.channel})</p>
+          <p class="mt-1">Revenue: <strong>${formatGBP(summary.totalRevenue)}</strong> | Net Profit: <strong>${formatGBP(summary.totalProfit)}</strong> | Margin: <strong>${summary.avgMargin}%</strong> | Return Rate: <strong>${summary.avgReturns}%</strong></p>
+        </div>
+        <div>
+          <p class="font-semibold text-sky-300 mb-1">Key Findings & Logged Board Actions:</p>
+          ${actionItems.length ? `<ul class="list-disc pl-5 space-y-1">${actionItems.map(a => `<li><strong>[${a.owner}]</strong> ${a.action} — <span class="text-emerald-400 font-semibold">${a.impact}</span></li>`).join('')}</ul>`
+          : `<p class="text-slate-400 text-xs">No specific action items logged yet—ask Arthur, Clara, or Marcus to log recommendations during your session.</p>`}
+        </div>
+      `;
+      document.getElementById('memoModal').classList.remove('hidden');
+    };
+
+    window.openQrModal = () => {
+      const url = window.location.href;
+      document.getElementById('shareUrlText').textContent = url;
+      document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+      document.getElementById('qrModal').classList.remove('hidden');
+    };
+
+    // ==========================================
+    // 7. ELEVENLABS SESSION & LIVE TRANSCRIPT
+    // ==========================================
+    function appendMessage(sender, text) {
+      const log = document.getElementById('transcriptLog');
+      if (log.querySelector('.italic')) log.innerHTML = '';
+
+      if (sender === 'AI') {
+        const lower = text.toLowerCase();
+        if (lower.includes('clara') || lower.includes('stepping in') || lower.includes('simulation')) setActiveSpecialist('Clara');
+        else if (lower.includes('marcus') || lower.includes('courier') || lower.includes('warehouse')) setActiveSpecialist('Marcus');
+      }
+
+      const wrapper = document.createElement('div');
+      const isAI = sender === 'AI';
+      wrapper.className = `p-2.5 rounded-lg ${isAI ? 'bg-sky-950/60 border border-sky-500/30 text-slate-100' : 'bg-slate-800 text-slate-200 ml-4'}`;
+      wrapper.innerHTML = `<span class="font-bold ${isAI ? 'text-sky-400' : 'text-emerald-400'}">${isAI ? 'Copilot' : 'You'}:</span> ${text}`;
+      log.appendChild(wrapper);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function logToolCall(toolName, params) {
+      toolCallsCount++;
+      document.getElementById('toolCallCounter').textContent = `${toolCallsCount} call${toolCallsCount === 1 ? '' : 's'}`;
+      const log = document.getElementById('transcriptLog');
+      if (log.querySelector('.italic')) log.innerHTML = '';
+
+      const badge = document.createElement('div');
+      badge.className = 'px-2.5 py-1 rounded bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 font-mono text-[10px]';
+      badge.textContent = `⚡ ${toolName}(${JSON.stringify(params)})`;
+      log.appendChild(badge);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    const savedAgentId = DEFAULT_AGENT_ID || localStorage.getItem('elevenlabs_arthur_agent_id') || '';
+    if (savedAgentId) document.getElementById('agentIdInput').value = savedAgentId;
+
+    const connectBtn = document.getElementById('connectBtn');
+    const voiceOrb = document.getElementById('voiceOrb');
+    const statusText = document.getElementById('agentStatusText');
+
+    connectBtn.addEventListener('click', async () => {
+      if (conversation) {
+        await conversation.endSession();
+        conversation = null;
+        updateConnectionUI(false);
+        return;
+      }
+
+      const agentId = document.getElementById('agentIdInput').value.trim();
+      if (!agentId) {
+        alert('Please paste your ElevenLabs Agent ID first!');
+        return;
+      }
+      localStorage.setItem('elevenlabs_arthur_agent_id', agentId);
+
+      try {
+        statusText.textContent = 'Connecting to Arthur, Clara & Marcus...';
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        conversation = await Conversation.startSession({
+          agentId: agentId,
+          connectionType: 'webrtc',
+          clientTools: clientTools,
+          onConnect: () => {
+            updateConnectionUI(true);
+            setActiveSpecialist('Arthur');
+            statusText.textContent = 'Live • Arthur is listening';
+          },
+          onDisconnect: () => {
+            conversation = null;
+            updateConnectionUI(false);
+            statusText.textContent = 'Briefing ended';
+          },
+          onModeChange: (mode) => {
+            voiceOrb.classList.remove('speaking-ring', 'listening-ring');
+            if (mode.mode === 'speaking') {
+              voiceOrb.classList.add('speaking-ring');
+              statusText.textContent = 'Speaking...';
+            } else {
+              voiceOrb.classList.add('listening-ring');
+              statusText.textContent = 'Listening...';
+            }
+          },
+          onMessage: (msg) => {
+            if (msg.message) appendMessage(msg.source === 'ai' ? 'AI' : 'You', msg.message);
+          },
+          onError: (err) => {
+            console.error(err);
+            statusText.textContent = `Error: ${err.message || err}`;
+          }
+        });
+      } catch (err) {
+        alert('Could not start session: ' + (err.message || err));
+        statusText.textContent = 'Connection failed — check Agent ID';
+      }
+    });
+
+    function updateConnectionUI(isConnected) {
+      const btnText = document.getElementById('connectBtnText');
+      const btnIcon = document.getElementById('connectBtnIcon');
+      if (isConnected) {
+        connectBtn.classList.remove('bg-sky-500', 'hover:bg-sky-400', 'text-slate-950');
+        connectBtn.classList.add('bg-rose-500', 'hover:bg-rose-400', 'text-white');
+        btnIcon.textContent = '⏹️';
+        btnText.textContent = 'End Briefing';
+      } else {
+        voiceOrb.classList.remove('speaking-ring', 'listening-ring');
+        connectBtn.classList.remove('bg-rose-500', 'hover:bg-rose-400', 'text-white');
+        connectBtn.classList.add('bg-sky-500', 'hover:bg-sky-400', 'text-slate-950');
+        btnIcon.textContent = '🎙️';
+        btnText.textContent = 'Start Executive Briefing';
+      }
+    }
+
+    document.getElementById('csvUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const lines = evt.target.result.split(/\r?\n/).filter(Boolean);
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const parsed = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length < 5) continue;
+          const getCol = (name, fallback) => {
+            const idx = headers.indexOf(name);
+            return idx >= 0 && cols[idx] ? cols[idx].trim() : fallback;
+          };
+          parsed.push({
+            region: getCol('region', 'London'),
+            channel: getCol('channel', 'Online'),
+            category: getCol('category', 'Electronics'),
+            quarter: getCol('quarter', 'Q3'),
+            revenue: Number(getCol('revenue', 100000)) || 100000,
+            marginPct: Number(getCol('margin', getCol('marginpct', 25))) || 25,
+            returnRate: Number(getCol('returns', getCol('returnrate', 5))) || 5,
+            discountPct: Number(getCol('discount', 5)) || 5
+          });
+        }
+        if (parsed.length) {
+          dataset = parsed;
+          renderDashboard();
+          appendMessage('System', `Loaded ${parsed.length} custom CSV rows!`);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    renderDashboard();
+  </script>
+</body>
+</html>
